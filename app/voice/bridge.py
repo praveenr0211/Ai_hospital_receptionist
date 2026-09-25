@@ -101,7 +101,8 @@ class VoiceBridge:
     # -------------------------------------------------------------
     async def _handle_exotel_event(self, event: Dict[str, Any]) -> None:
         event_name = event.get("event")
-        logger.info("Call %s: Received Exotel event '%s'", self.call_id, event_name)
+        if event_name != "media":
+            logger.info("Call %s: Received Exotel event '%s'", self.call_id, event_name)
 
         if event_name == "connected":
             logger.info("Call %s: Exotel connected", self.call_id)
@@ -170,9 +171,6 @@ class VoiceBridge:
                     else:
                         pcm_bytes = raw_bytes
 
-                    # User is speaking - if AI is currently playing audio, trigger barge-in!
-                    if self._is_speaking and self.stream_id:
-                        await self._interrupt_playback()
                     await self.gemini_session.send_audio(pcm_bytes)
 
         elif event_name == "stop":
@@ -246,6 +244,7 @@ class VoiceBridge:
                             pcm_bytes=out_audio
                         )
                         await self.websocket.send_text(media_frame)
+                        logger.info("Sent audio frame (%d bytes) to Exotel stream %s", len(out_audio), self.stream_id)
 
                 elif event.event_type == "text" and event.text:
                     logger.info("AI Receptionist: %s", event.text)

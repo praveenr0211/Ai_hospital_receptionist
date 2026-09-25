@@ -25,6 +25,20 @@ class Call(Base):
         nullable=False
     )
     escalated: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    
+    # Telephony and Voice Integration (Phase 6)
+    provider: Mapped[str | None] = mapped_column(String(50), default="exotel", nullable=True)
+    provider_call_id: Mapped[str | None] = mapped_column(String(100), index=True, nullable=True)
+    stream_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    session_id: Mapped[str | None] = mapped_column(String(100), index=True, nullable=True)
+    call_status: Mapped[str | None] = mapped_column(String(50), default="completed", nullable=True)
+    answered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    transfer_requested: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    transfer_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    failure_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    recording_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    transcript: Mapped[str | None] = mapped_column(String(4000), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # Relationships
@@ -33,5 +47,5 @@ class Call(Base):
     def __repr__(self) -> str:
         return (
             f"<Call(id={self.id}, phone='{self.phone_number}', intent='{self.intent}', "
-            f"outcome='{self.outcome.value}', escalated={self.escalated})>"
+            f"outcome='{self.outcome.value}', call_status='{self.call_status}', escalated={self.escalated})>"
         )

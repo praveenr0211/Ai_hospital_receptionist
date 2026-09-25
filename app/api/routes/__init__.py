@@ -10,6 +10,7 @@ from app.api.routes.calls import router as calls_router
 from app.api.routes.dashboard import router as dashboard_router
 from app.api.routes.medical_routing import router as medical_routing_router
 from app.api.routes.agent import router as agent_router
+from app.api.routes.voice import router as voice_router
 
 api_v1_router = APIRouter(prefix="/api/v1")
 
@@ -24,4 +25,5 @@ api_v1_router.include_router(calls_router)
 api_v1_router.include_router(dashboard_router)
 api_v1_router.include_router(medical_routing_router)
 api_v1_router.include_router(agent_router)
+api_v1_router.include_router(voice_router)
 

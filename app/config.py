@@ -11,6 +11,24 @@ class Settings(BaseSettings):
     POSTGRES_DB: str = "hospital_receptionist"
     DATABASE_URL: str | None = None
 
+    # Exotel Telephony Configuration
+    EXOTEL_API_KEY: str = ""
+    EXOTEL_API_TOKEN: str = ""
+    EXOTEL_ACCOUNT_SID: str = ""
+    EXOTEL_PHONE_NUMBER: str = ""
+    EXOTEL_API_BASE_URL: str = "https://api.in.exotel.com"
+
+    # Gemini Live Configuration
+    GEMINI_API_KEY: str = ""
+    GEMINI_LIVE_MODEL: str = "gemini-3.8-live"
+
+    # Voice / Audio Settings
+    PUBLIC_BASE_URL: str = "http://localhost:8000"
+    VOICE_WS_URL: str = "ws://localhost:8000/api/v1/voice/stream"
+    VOICE_INPUT_SAMPLE_RATE: int = 16000
+    VOICE_OUTPUT_SAMPLE_RATE: int = 24000
+    ENVIRONMENT: str = "development"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

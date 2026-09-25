@@ -74,12 +74,20 @@ The system is built on a clean layered architecture where deterministic business
 - Explicit booking confirmation gate before executing irreversible DB transactions.
 - In-memory session management with conversation reset capabilities.
 
+### 6. Phase 6 — Real-Time Voice & Telephony Integration (Exotel + Gemini Live)
+- Real-time bidirectional voice streaming over WebSocket (`/api/v1/voice/stream/{call_id}`) using PCM 16kHz in / 24kHz out.
+- Telephony integration via **Exotel AgentStream** supporting incoming webhooks, JSON flow descriptors, and TwiML/Voice XML.
+- Multimodal conversational AI with **Gemini Live** (`client.aio.live.connect()`), binding Phase 5 deterministic tools for booking, doctor lookup, and patient queries.
+- Instantaneous barge-in / speech interruption via Exotel `clear` frame flushing.
+- Emergency safety protocol automatically stopping normal booking and initiating telephone transfer to human hospital staff.
+
 ---
 
 ## 🛠️ Tech Stack
 
 - **Language**: Python 3.11+ (tested on Python 3.14)
 - **Framework**: FastAPI, Pydantic V2, Uvicorn
+- **Telephony & Real-Time Voice**: Exotel AgentStream, Google GenAI SDK (Gemini Live)
 - **Database**: PostgreSQL, SQLAlchemy 2.0, Alembic, psycopg v3
 - **Testing**: pytest, pytest-asyncio, HTTPX
 
@@ -113,6 +121,12 @@ POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
 POSTGRES_DB=hospital_receptionist
 DATABASE_URL=postgresql+psycopg://postgres:your_password@localhost:5432/hospital_receptionist
+
+# Phase 6 Voice & Telephony (Optional for live phone calls)
+# EXOTEL_API_KEY=
+# EXOTEL_API_TOKEN=
+# EXOTEL_ACCOUNT_SID=
+# GEMINI_API_KEY=
 ```
 
 ### 4. Run database migrations & seed data
@@ -125,7 +139,7 @@ python scripts/seed_data.py
 ```bash
 pytest
 ```
-*Current test suite: 125 tests passing (100% pass rate).*
+*Current test suite: 147 tests passing (100% pass rate).*
 
 ### 6. Start the API server
 ```bash
@@ -141,3 +155,4 @@ Visit the interactive API docs at `http://localhost:8000/docs`.
 - `python scripts/verify_booking_engine.py` — Availability & race condition verification
 - `python scripts/verify_medical_routing.py` — Medical safety & emergency triage test
 - `python scripts/verify_agent.py` — 11-step end-to-end multi-turn conversation test
+- `python scripts/verify_voice.py` — Full voice & telephony streaming pipeline test

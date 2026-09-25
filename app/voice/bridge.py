@@ -43,7 +43,8 @@ class VoiceBridge:
         self.stream_id: Optional[str] = None
         self.session: Optional[VoiceSession] = None
         self.gemini_session: Optional[GeminiLiveSession] = None
-        self.media_encoding: str = "audio/x-mulaw"
+        self.media_encoding: str = "audio/x-pcm"
+        self.target_sample_rate: int = 8000
         self._is_speaking = False
         self._running = False
         self._db_call_id: Optional[int] = None
@@ -131,12 +132,15 @@ class VoiceBridge:
                 or event.get("callSid")
                 or event.get("call_sid")
             )
-            media_format = start_data.get("mediaFormat", {})
-            if media_format and "encoding" in media_format:
-                self.media_encoding = media_format.get("encoding", "audio/x-mulaw")
+            media_format = start_data.get("mediaFormat") or event.get("mediaFormat") or {}
+            if media_format:
+                if "encoding" in media_format:
+                    self.media_encoding = media_format.get("encoding", "audio/x-pcm")
+                if "sampleRate" in media_format:
+                    self.target_sample_rate = int(media_format.get("sampleRate", 8000))
             logger.info(
-                "Call %s: Stream started for caller %s (stream %s, encoding %s)",
-                self.call_id, caller_phone, self.stream_id, self.media_encoding
+                "Call %s: Stream started for caller %s (stream %s, encoding %s, rate %s)",
+                self.call_id, caller_phone, self.stream_id, self.media_encoding, self.target_sample_rate
             )
 
             if incoming_sid:
@@ -165,9 +169,14 @@ class VoiceBridge:
             if payload and self.gemini_session:
                 raw_bytes = AudioProcessor.decode_base64_payload(payload)
                 if raw_bytes:
-                    # Transcode 8kHz mu-law from PSTN to 16kHz PCM for Gemini if needed
-                    if "mulaw" in self.media_encoding.lower():
+                    if "mulaw" in self.media_encoding.lower() or "ulaw" in self.media_encoding.lower():
                         pcm_bytes = AudioProcessor.mulaw_to_pcm16k(raw_bytes)
+                    elif self.target_sample_rate == 8000:
+                        try:
+                            import audioop
+                            pcm_bytes, _ = audioop.ratecv(raw_bytes, 2, 1, 8000, 16000, None)
+                        except Exception:
+                            pcm_bytes = raw_bytes
                     else:
                         pcm_bytes = raw_bytes
 
@@ -233,9 +242,10 @@ class VoiceBridge:
 
                     if self.stream_id and self._running:
                         self._is_speaking = True
-                        # Transcode 24kHz linear PCM to 8kHz mu-law for telephony if needed
-                        if "mulaw" in self.media_encoding.lower():
+                        if "mulaw" in self.media_encoding.lower() or "ulaw" in self.media_encoding.lower():
                             out_audio = AudioProcessor.pcm24k_to_mulaw(event.audio_pcm)
+                        elif self.target_sample_rate == 8000:
+                            out_audio = AudioProcessor.pcm24k_to_pcm8k(event.audio_pcm)
                         else:
                             out_audio = AudioProcessor.pcm24k_to_pcm16k(event.audio_pcm)
 

@@ -76,6 +76,18 @@ class AudioProcessor:
             return pcm24k_bytes
 
     @staticmethod
+    def pcm24k_to_pcm8k(pcm24k_bytes: bytes) -> bytes:
+        """Downsample 24kHz 16-bit linear PCM to 8kHz 16-bit linear PCM."""
+        if not pcm24k_bytes or not audioop:
+            return pcm24k_bytes
+        try:
+            pcm8k, _ = audioop.ratecv(pcm24k_bytes, 2, 1, 24000, 8000, None)
+            return pcm8k
+        except Exception as exc:
+            logger.error("Error in pcm24k_to_pcm8k conversion: %s", exc)
+            return pcm24k_bytes
+
+    @staticmethod
     def calculate_duration_ms(byte_count: int, sample_rate: int = 16000, channels: int = 1, bytes_per_sample: int = 2) -> float:
         """Calculate the duration of PCM audio in milliseconds."""
         bytes_per_second = sample_rate * channels * bytes_per_sample

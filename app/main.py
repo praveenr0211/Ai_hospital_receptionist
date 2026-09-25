@@ -1,8 +1,14 @@
+import logging
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
 
 from app.api.routes import api_v1_router
 from app.services.exceptions import (

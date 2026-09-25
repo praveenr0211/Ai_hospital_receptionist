@@ -92,6 +92,7 @@ class VoiceBridge:
     # -------------------------------------------------------------
     async def _handle_exotel_event(self, event: Dict[str, Any]) -> None:
         event_name = event.get("event")
+        logger.info("Call %s: Received Exotel event '%s'", self.call_id, event_name)
 
         if event_name == "connected":
             logger.info("Call %s: Exotel connected", self.call_id)
@@ -100,8 +101,31 @@ class VoiceBridge:
 
         elif event_name == "start":
             start_data = event.get("start", {})
-            self.stream_id = start_data.get("stream_sid")
-            caller_phone = start_data.get("from", "UNKNOWN")
+            self.stream_id = (
+                start_data.get("streamSid")
+                or start_data.get("stream_sid")
+                or event.get("streamSid")
+                or event.get("stream_sid")
+                or self.stream_id
+            )
+            caller_phone = (
+                start_data.get("from")
+                or start_data.get("From")
+                or event.get("from")
+                or "UNKNOWN"
+            )
+            incoming_sid = (
+                start_data.get("callSid")
+                or start_data.get("call_sid")
+                or start_data.get("CallSid")
+                or event.get("callSid")
+                or event.get("call_sid")
+            )
+            if incoming_sid:
+                self.call_id = incoming_sid
+                self.session = voice_session_store.get(incoming_sid) or voice_session_store.create(
+                    call_id=incoming_sid, phone_number=caller_phone
+                )
 
             if self.session:
                 self.session.stream_id = self.stream_id
@@ -112,8 +136,19 @@ class VoiceBridge:
             self._init_db_call_record(caller_phone)
             logger.info("Call %s: Stream started for caller %s (stream %s)", self.call_id, caller_phone, self.stream_id)
 
+            # Trigger initial greeting from Gemini Live so caller hears AI immediately
+            if self.gemini_session:
+                logger.info("Triggering initial greeting from Gemini Live...")
+                asyncio.create_task(
+                    self.gemini_session.send_text(
+                        "The caller has just connected to Apollo Hospital. Greet the caller warmly and ask how you can help them today."
+                    )
+                )
+
         elif event_name == "media":
             # Incoming audio from caller (16kHz PCM base64)
+            if not self.stream_id:
+                self.stream_id = event.get("streamSid") or event.get("stream_sid")
             media_data = event.get("media", {})
             payload = media_data.get("payload", "")
             if payload and self.gemini_session:
@@ -172,8 +207,12 @@ class VoiceBridge:
                         )
                         await self.websocket.send_text(media_frame)
 
+                elif event.event_type == "text" and event.text:
+                    logger.info("AI Receptionist: %s", event.text)
+
                 elif event.event_type == "interrupted":
                     # Gemini VAD detected caller speaking
+                    logger.info("Caller interrupted AI playback. Flushing audio.")
                     await self._interrupt_playback()
 
                 elif event.event_type == "turn_complete":
@@ -339,7 +378,10 @@ class VoiceBridge:
         now = datetime.now(timezone.utc)
         if self.session:
             if self.session.status not in (CallStatus.COMPLETED, CallStatus.FAILED, CallStatus.HUMAN_TRANSFER):
-                CallLifecycleManager.transition(self.session, CallStatus.COMPLETED)
+                try:
+                    CallLifecycleManager.transition(self.session, CallStatus.COMPLETED)
+                except Exception:
+                    self.session.mark_completed()
 
         if self.gemini_session:
             await self.gemini_session.close()

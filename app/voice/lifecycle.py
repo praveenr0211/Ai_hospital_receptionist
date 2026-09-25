@@ -6,8 +6,8 @@ from app.voice.session import CallStatus, VoiceSession
 
 # Valid state transitions
 VALID_TRANSITIONS: dict[CallStatus, Set[CallStatus]] = {
-    CallStatus.INCOMING: {CallStatus.CONNECTING, CallStatus.FAILED},
-    CallStatus.CONNECTING: {CallStatus.ACTIVE, CallStatus.FAILED},
+    CallStatus.INCOMING: {CallStatus.CONNECTING, CallStatus.ACTIVE, CallStatus.FAILED},
+    CallStatus.CONNECTING: {CallStatus.ACTIVE, CallStatus.COMPLETED, CallStatus.FAILED},
     CallStatus.ACTIVE: {CallStatus.PROCESSING, CallStatus.HUMAN_TRANSFER, CallStatus.COMPLETED, CallStatus.FAILED},
     CallStatus.PROCESSING: {CallStatus.ACTIVE, CallStatus.HUMAN_TRANSFER, CallStatus.COMPLETED, CallStatus.FAILED},
     CallStatus.HUMAN_TRANSFER: {CallStatus.COMPLETED, CallStatus.FAILED},
@@ -33,7 +33,7 @@ class CallLifecycleManager:
                 f"Cannot transition voice call {session.call_id} from {session.status.value} to {target_status.value}."
             )
 
-        if target_status == CallStatus.ACTIVE and session.status == CallStatus.CONNECTING:
+        if target_status == CallStatus.ACTIVE and session.status in (CallStatus.INCOMING, CallStatus.CONNECTING):
             session.mark_answered()
         elif target_status == CallStatus.COMPLETED:
             session.mark_completed()

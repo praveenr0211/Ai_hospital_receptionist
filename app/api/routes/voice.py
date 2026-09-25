@@ -90,10 +90,12 @@ async def handle_incoming_call(
     return Response(content=json_response, media_type="application/json")
 
 
+@router.websocket("/stream")
 @router.websocket("/stream/{call_id}")
-async def voice_media_stream(websocket: WebSocket, call_id: str) -> None:
+async def voice_media_stream(websocket: WebSocket, call_id: Optional[str] = None) -> None:
     """Bidirectional WebSocket audio streaming bridge with Exotel AgentStream."""
-    await handle_voice_stream(websocket, call_id)
+    actual_call_id = call_id or websocket.query_params.get("CallSid") or f"exotel_{int(datetime.now().timestamp())}"
+    await handle_voice_stream(websocket, actual_call_id)
 
 
 @router.post("/status", summary="Exotel call status lifecycle callback")

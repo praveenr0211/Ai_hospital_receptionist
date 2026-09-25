@@ -199,6 +199,25 @@ class GeminiLiveSession:
             GeminiEvent(event_type="turn_complete")
         )
 
+    async def send_text(self, text: str, end_of_turn: bool = True) -> None:
+        """Send a text prompt or instructions to Gemini Live."""
+        if not self._connected:
+            return
+
+        if not self._is_mock and self._live_session:
+            from google.genai import types
+            await self._live_session.send(
+                input=types.LiveClientContent(
+                    turns=[
+                        types.Content(
+                            role="user",
+                            parts=[types.Part(text=text)]
+                        )
+                    ],
+                    turn_complete=end_of_turn
+                )
+            )
+
     async def send_audio(self, pcm_bytes: bytes) -> None:
         """Send 16kHz PCM audio chunk to Gemini."""
         if not self._connected:

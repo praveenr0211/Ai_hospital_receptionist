@@ -62,6 +62,7 @@ class ExotelProvider(TelephonyProvider):
         payload_base64 = AudioProcessor.encode_base64_payload(pcm_bytes)
         frame = {
             "event": "media",
+            "streamSid": stream_sid,
             "stream_sid": stream_sid,
             "media": {
                 "payload": payload_base64
@@ -74,6 +75,7 @@ class ExotelProvider(TelephonyProvider):
         """Create a 'mark' event frame for tracking playback milestones."""
         frame = {
             "event": "mark",
+            "streamSid": stream_sid,
             "stream_sid": stream_sid,
             "mark": {
                 "name": mark_name
@@ -89,6 +91,7 @@ class ExotelProvider(TelephonyProvider):
         """
         frame = {
             "event": "clear",
+            "streamSid": stream_sid,
             "stream_sid": stream_sid
         }
         return json.dumps(frame)

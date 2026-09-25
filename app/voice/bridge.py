@@ -43,9 +43,11 @@ class VoiceBridge:
         self.stream_id: Optional[str] = None
         self.session: Optional[VoiceSession] = None
         self.gemini_session: Optional[GeminiLiveSession] = None
+        self.media_encoding: str = "audio/x-mulaw"
         self._is_speaking = False
         self._running = False
         self._db_call_id: Optional[int] = None
+        self._gemini_task: Optional[asyncio.Task] = None
 
     async def run(self) -> None:
         """Start the bidirectional voice streaming bridge."""
@@ -58,16 +60,13 @@ class VoiceBridge:
                 phone_number="UNKNOWN"
             )
 
-        # Initialize Gemini Live session (mocked for test_ prefixed calls, live for real phone calls)
+        # Initialize Gemini Live session in the background so Exotel socket loop starts immediately
         is_mock = True if self.call_id.startswith("test_") else None
         self.gemini_session = GeminiLiveSession(is_mock=is_mock)
-        await self.gemini_session.connect()
-
-        # Start concurrent task to receive Gemini events
-        gemini_task = asyncio.create_task(self._process_gemini_events())
+        asyncio.create_task(self._init_gemini_and_events())
 
         try:
-            # Process Exotel WebSocket events
+            # Process Exotel WebSocket events immediately without blocking on external APIs
             while self._running:
                 raw_text = await self.websocket.receive_text()
                 event_data = ExotelProvider.parse_event(raw_text)
@@ -80,12 +79,22 @@ class VoiceBridge:
             logger.error("Error in VoiceBridge for call %s: %s", self.call_id, exc)
         finally:
             self._running = False
-            gemini_task.cancel()
+            if self._gemini_task:
+                self._gemini_task.cancel()
             await self._cleanup()
             try:
                 await self.websocket.close()
             except Exception:
                 pass
+
+    async def _init_gemini_and_events(self) -> None:
+        """Establish Gemini Live connection and start background event listener."""
+        try:
+            if self.gemini_session:
+                await self.gemini_session.connect()
+                self._gemini_task = asyncio.create_task(self._process_gemini_events())
+        except Exception as exc:
+            logger.error("Failed to connect Gemini Live for call %s: %s", self.call_id, exc)
 
     # -------------------------------------------------------------
     # Exotel Event Handling (Caller -> Server)
@@ -121,6 +130,14 @@ class VoiceBridge:
                 or event.get("callSid")
                 or event.get("call_sid")
             )
+            media_format = start_data.get("mediaFormat", {})
+            if media_format and "encoding" in media_format:
+                self.media_encoding = media_format.get("encoding", "audio/x-mulaw")
+            logger.info(
+                "Call %s: Stream started for caller %s (stream %s, encoding %s)",
+                self.call_id, caller_phone, self.stream_id, self.media_encoding
+            )
+
             if incoming_sid:
                 self.call_id = incoming_sid
                 self.session = voice_session_store.get(incoming_sid) or voice_session_store.create(
@@ -134,26 +151,25 @@ class VoiceBridge:
 
             # Persist call start in PostgreSQL calls table
             self._init_db_call_record(caller_phone)
-            logger.info("Call %s: Stream started for caller %s (stream %s)", self.call_id, caller_phone, self.stream_id)
 
-            # Trigger initial greeting from Gemini Live so caller hears AI immediately
-            if self.gemini_session:
-                logger.info("Triggering initial greeting from Gemini Live...")
-                asyncio.create_task(
-                    self.gemini_session.send_text(
-                        "The caller has just connected to Apollo Hospital. Greet the caller warmly and ask how you can help them today."
-                    )
-                )
+            # Trigger initial greeting once Gemini Live is connected
+            asyncio.create_task(self._trigger_greeting())
 
         elif event_name == "media":
-            # Incoming audio from caller (16kHz PCM base64)
+            # Incoming audio from caller
             if not self.stream_id:
                 self.stream_id = event.get("streamSid") or event.get("stream_sid")
             media_data = event.get("media", {})
             payload = media_data.get("payload", "")
             if payload and self.gemini_session:
-                pcm_bytes = AudioProcessor.decode_base64_payload(payload)
-                if pcm_bytes:
+                raw_bytes = AudioProcessor.decode_base64_payload(payload)
+                if raw_bytes:
+                    # Transcode 8kHz mu-law from PSTN to 16kHz PCM for Gemini if needed
+                    if "mulaw" in self.media_encoding.lower():
+                        pcm_bytes = AudioProcessor.mulaw_to_pcm16k(raw_bytes)
+                    else:
+                        pcm_bytes = raw_bytes
+
                     # User is speaking - if AI is currently playing audio, trigger barge-in!
                     if self._is_speaking and self.stream_id:
                         await self._interrupt_playback()
@@ -179,6 +195,24 @@ class VoiceBridge:
                 logger.error("Failed to update call record on stop: %s", exc)
             self._running = False
 
+    async def _trigger_greeting(self) -> None:
+        """Wait for Gemini connection and trigger initial spoken greeting."""
+        try:
+            for _ in range(50):  # Wait up to 2.5 seconds for Gemini Live connection
+                if self.gemini_session and self.gemini_session._connected:
+                    break
+                await asyncio.sleep(0.05)
+
+            if self.gemini_session and self.gemini_session._connected:
+                logger.info("Call %s: Triggering initial greeting from Gemini Live...", self.call_id)
+                await self.gemini_session.send_text(
+                    "The caller has just connected to Apollo Hospital. Greet the caller warmly and ask how you can help them today."
+                )
+            else:
+                logger.warning("Call %s: Gemini Live did not connect in time for greeting.", self.call_id)
+        except Exception as exc:
+            logger.error("Call %s: Error triggering greeting: %s", self.call_id, exc)
+
     # -------------------------------------------------------------
     # Gemini Event Handling (Gemini -> Caller)
     # -------------------------------------------------------------
@@ -201,9 +235,15 @@ class VoiceBridge:
 
                     if self.stream_id and self._running:
                         self._is_speaking = True
+                        # Transcode 24kHz linear PCM to 8kHz mu-law for telephony if needed
+                        if "mulaw" in self.media_encoding.lower():
+                            out_audio = AudioProcessor.pcm24k_to_mulaw(event.audio_pcm)
+                        else:
+                            out_audio = AudioProcessor.pcm24k_to_pcm16k(event.audio_pcm)
+
                         media_frame = ExotelProvider.create_media_frame(
                             stream_sid=self.stream_id,
-                            pcm_bytes=event.audio_pcm
+                            pcm_bytes=out_audio
                         )
                         await self.websocket.send_text(media_frame)
 

@@ -143,13 +143,13 @@ class GeminiEvent:
 class GeminiLiveSession:
     """Manages persistent asynchronous Gemini Live streaming session."""
 
-    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None) -> None:
+    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None, is_mock: Optional[bool] = None) -> None:
         self.api_key = api_key or settings.GEMINI_API_KEY
         self.model = model or settings.GEMINI_LIVE_MODEL
         self._connected = False
         self._client = None
         self._live_session = None
-        self._is_mock = not bool(self.api_key)
+        self._is_mock = is_mock if is_mock is not None else not bool(self.api_key)
         self._mock_queue: asyncio.Queue[GeminiEvent] = asyncio.Queue()
 
     async def connect(self) -> None:
@@ -160,10 +160,11 @@ class GeminiLiveSession:
                 from google.genai import types
 
                 self._client = genai.Client(api_key=self.api_key, http_options={"api_version": "v1alpha"})
+                model_name = self.model if self.model.startswith("models/") else f"models/{self.model}"
                 
                 config = types.LiveConnectConfig(
-                    response_modalities=[types.LiveModality.AUDIO],
-                    system_instruction=types.Content(parts=[types.Part.from_text(RECEPTIONIST_SYSTEM_INSTRUCTION)]),
+                    response_modalities=["AUDIO"],
+                    system_instruction=types.Content(parts=[types.Part(text=RECEPTIONIST_SYSTEM_INSTRUCTION)]),
                     speech_config=types.SpeechConfig(
                         voice_config=types.VoiceConfig(
                             prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name="Aoede")
@@ -171,12 +172,13 @@ class GeminiLiveSession:
                     ),
                     tools=[{"function_declarations": GEMINI_FUNCTION_DECLARATIONS}]
                 )
-                self._live_session = await self._client.aio.live.connect(
-                    model=self.model,
+                self._live_context = self._client.aio.live.connect(
+                    model=model_name,
                     config=config
                 )
+                self._live_session = await self._live_context.__aenter__()
                 self._connected = True
-                logger.info("Connected to Gemini Live with model %s", self.model)
+                logger.info("Connected to live Gemini Live API with model %s", model_name)
                 return
             except Exception as exc:
                 logger.warning("Failed to connect to real Gemini Live API (%s). Falling back to mock live session.", exc)
@@ -286,9 +288,10 @@ class GeminiLiveSession:
     async def close(self) -> None:
         """Close Gemini Live streaming session."""
         self._connected = False
-        if self._live_session:
+        if hasattr(self, "_live_context") and self._live_context:
             try:
-                await self._live_session.close()
+                await self._live_context.__aexit__(None, None, None)
             except Exception:
                 pass
         self._live_session = None
+        self._live_context = None

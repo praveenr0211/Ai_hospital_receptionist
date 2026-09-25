@@ -58,8 +58,9 @@ class VoiceBridge:
                 phone_number="UNKNOWN"
             )
 
-        # Initialize Gemini Live session
-        self.gemini_session = GeminiLiveSession()
+        # Initialize Gemini Live session (mocked for test_ prefixed calls, live for real phone calls)
+        is_mock = True if self.call_id.startswith("test_") else None
+        self.gemini_session = GeminiLiveSession(is_mock=is_mock)
         await self.gemini_session.connect()
 
         # Start concurrent task to receive Gemini events

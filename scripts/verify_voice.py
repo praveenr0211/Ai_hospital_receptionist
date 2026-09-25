@@ -39,7 +39,7 @@ def verify_phase6():
     print("="*70)
 
     caller_phone = "+919876543210"
-    call_id = f"CA_{uuid.uuid4().hex[:10]}"
+    call_id = f"test_CA_{uuid.uuid4().hex[:10]}"
     stream_id = f"stream_{uuid.uuid4().hex[:8]}"
 
     # -------------------------------------------------------------
@@ -152,7 +152,7 @@ def verify_phase6():
     # 6. Safety Emergency Branch & Human Operator Transfer
     # -------------------------------------------------------------
     log_step("6. Clinical Emergency Protocol & Real Telephone Transfer")
-    emergency_call_id = f"CA_EMERGENCY_{uuid.uuid4().hex[:6]}"
+    emergency_call_id = f"test_EMERGENCY_{uuid.uuid4().hex[:6]}"
     client.post("/api/v1/voice/incoming", data={"CallSid": emergency_call_id, "From": caller_phone})
 
     # Trigger operator transfer

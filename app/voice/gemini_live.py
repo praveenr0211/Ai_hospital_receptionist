@@ -187,47 +187,55 @@ class GeminiLiveSession:
         self._mock_queue: asyncio.Queue[GeminiEvent] = asyncio.Queue()
 
     async def connect(self) -> None:
-        """Establish async Gemini Live connection."""
-        if not self._is_mock:
-            try:
-                from google import genai
-                from google.genai import types
+        """Establish async Gemini Live connection with automatic retry on handshake timeout."""
+        if not self._is_mock and self.api_key:
+            from google import genai
+            from google.genai import types
 
-                self._client = genai.Client(api_key=self.api_key, http_options={"api_version": "v1alpha"})
-                model_name = self.model if self.model.startswith("models/") else f"models/{self.model}"
-                
-                config = types.LiveConnectConfig(
-                    response_modalities=["AUDIO"],
-                    system_instruction=types.Content(parts=[types.Part(text=RECEPTIONIST_SYSTEM_INSTRUCTION)]),
-                    speech_config=types.SpeechConfig(
-                        voice_config=types.VoiceConfig(
-                            prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name="Aoede")
-                        )
-                    ),
-                    input_audio_transcription=types.AudioTranscriptionConfig(),
-                    thinking_config=types.ThinkingConfig(thinking_budget=0),
-                    realtime_input_config=types.RealtimeInputConfig(
-                        automatic_activity_detection=types.AutomaticActivityDetection(
-                            disabled=False,
-                            start_of_speech_sensitivity=types.StartSensitivity.START_SENSITIVITY_HIGH,
-                            end_of_speech_sensitivity=types.EndSensitivity.END_SENSITIVITY_HIGH,
-                            silence_duration_ms=400,
-                            prefix_padding_ms=20,
-                        )
-                    ),
-                    tools=[{"function_declarations": GEMINI_FUNCTION_DECLARATIONS}]
-                )
-                self._live_context = self._client.aio.live.connect(
-                    model=model_name,
-                    config=config
-                )
-                self._live_session = await self._live_context.__aenter__()
-                self._connected = True
-                logger.info("Connected to live Gemini Live API with model %s", model_name)
-                return
-            except Exception as exc:
-                logger.warning("Failed to connect to real Gemini Live API (%s). Falling back to mock live session.", exc)
-                self._is_mock = True
+            self._client = genai.Client(api_key=self.api_key, http_options={"api_version": "v1alpha"})
+            model_name = self.model if self.model.startswith("models/") else f"models/{self.model}"
+            
+            config = types.LiveConnectConfig(
+                response_modalities=["AUDIO"],
+                system_instruction=types.Content(parts=[types.Part(text=RECEPTIONIST_SYSTEM_INSTRUCTION)]),
+                speech_config=types.SpeechConfig(
+                    voice_config=types.VoiceConfig(
+                        prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name="Aoede")
+                    )
+                ),
+                input_audio_transcription=types.AudioTranscriptionConfig(),
+                thinking_config=types.ThinkingConfig(thinking_budget=0),
+                realtime_input_config=types.RealtimeInputConfig(
+                    automatic_activity_detection=types.AutomaticActivityDetection(
+                        disabled=False,
+                        start_of_speech_sensitivity=types.StartSensitivity.START_SENSITIVITY_HIGH,
+                        end_of_speech_sensitivity=types.EndSensitivity.END_SENSITIVITY_HIGH,
+                        silence_duration_ms=400,
+                        prefix_padding_ms=20,
+                    )
+                ),
+                tools=[{"function_declarations": GEMINI_FUNCTION_DECLARATIONS}]
+            )
+
+            max_retries = 3
+            for attempt in range(1, max_retries + 1):
+                try:
+                    logger.info("Connecting to Gemini Live API with model %s (attempt %d/%d)...", model_name, attempt, max_retries)
+                    self._live_context = self._client.aio.live.connect(
+                        model=model_name,
+                        config=config
+                    )
+                    self._live_session = await self._live_context.__aenter__()
+                    self._connected = True
+                    logger.info("Connected to live Gemini Live API with model %s", model_name)
+                    return
+                except Exception as exc:
+                    logger.warning("Gemini Live connection attempt %d/%d failed: %s", attempt, max_retries, exc)
+                    if attempt < max_retries:
+                        await asyncio.sleep(0.5 * attempt)
+                    else:
+                        logger.error("All %d connection attempts to Gemini Live failed: %s", max_retries, exc)
+                        raise
 
         self._connected = True
         logger.info("Initialized mock Gemini Live session for local testing.")

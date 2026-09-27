@@ -209,10 +209,13 @@ class VoiceBridge:
     async def _trigger_greeting(self) -> None:
         """Wait for Gemini connection and trigger initial spoken greeting."""
         try:
-            for _ in range(50):  # Wait up to 2.5 seconds for Gemini Live connection
+            # Wait up to 10 seconds for Gemini Live connection (covers retries if any)
+            for _ in range(100):
                 if self.gemini_session and self.gemini_session._connected:
                     break
-                await asyncio.sleep(0.05)
+                if not self._running:
+                    return
+                await asyncio.sleep(0.1)
 
             if self.gemini_session and self.gemini_session._connected:
                 logger.info("Call %s: Triggering initial greeting from Gemini Live...", self.call_id)

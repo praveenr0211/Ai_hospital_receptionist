@@ -169,12 +169,20 @@ class VoiceBridge:
             if payload and self.gemini_session:
                 raw_bytes = AudioProcessor.decode_base64_payload(payload)
                 if raw_bytes:
-                    if "mulaw" in self.media_encoding.lower() or "ulaw" in self.media_encoding.lower():
+                    # Dynamically detect audio format: 160 bytes @ 8kHz is 8-bit mu-law; 320 bytes @ 8kHz is 16-bit linear PCM
+                    if "mulaw" in self.media_encoding.lower() or "ulaw" in self.media_encoding.lower() or len(raw_bytes) == 160:
                         pcm_bytes = AudioProcessor.mulaw_to_pcm16k(raw_bytes)
-                    elif self.target_sample_rate == 8000:
+                    elif self.target_sample_rate == 8000 or len(raw_bytes) == 320:
                         pcm_bytes = AudioProcessor.pcm8k_to_pcm16k(raw_bytes)
                     else:
                         pcm_bytes = raw_bytes
+
+                    if not hasattr(self, "_first_media_logged"):
+                        self._first_media_logged = True
+                        logger.info(
+                            "Call %s: First media chunk received: %d bytes raw audio (declared encoding=%s, rate=%s) -> converted to %d bytes PCM16k",
+                            self.call_id, len(raw_bytes), self.media_encoding, self.target_sample_rate, len(pcm_bytes)
+                        )
 
                     await self.gemini_session.send_audio(pcm_bytes)
 

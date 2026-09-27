@@ -251,12 +251,29 @@ class GeminiLiveSession:
             )
 
     async def receive_events(self) -> AsyncIterator[GeminiEvent]:
-        """Stream events (audio output, tool calls, transcripts) from Gemini Live."""
+        """Stream events (audio output, tool calls, transcripts) from Gemini Live.
+        
+        Uses persistent _receive() loop so the stream stays continuously alive across
+        all conversation turns (greeting, caller speech, tool execution, followup).
+        """
         if not self._connected:
             return
 
         if not self._is_mock and self._live_session:
-            async for response in self._live_session.receive():
+            while self._connected and self._live_session:
+                try:
+                    response = await self._live_session._receive()
+                    if not response:
+                        continue
+                except asyncio.CancelledError:
+                    break
+                except Exception as exc:
+                    if not self._connected:
+                        break
+                    logger.warning("Gemini Live receive error: %s", exc)
+                    await asyncio.sleep(0.05)
+                    continue
+
                 server_content = getattr(response, "server_content", None)
                 if server_content:
                     # Caller speech transcription

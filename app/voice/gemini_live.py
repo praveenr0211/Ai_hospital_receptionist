@@ -42,9 +42,13 @@ CONVERSATION & APPOINTMENT WORKFLOW:
    - Call `find_patient_by_phone(phone=...)`.
    - If the patient is new or not found in records, DO NOT escalate to human! Call `create_patient(name=..., phone=...)` to register them immediately.
    - Then call `book_appointment(patient_id=..., doctor_id=..., date=..., start_time=..., reason=...)`.
-4. EXPLICIT CONFIRMATION:
-   - State the booked doctor, date, and time clearly to the patient (e.g. "Your appointment with Dr. Amit Roy on tomorrow, September 28 at 3:00 PM is confirmed!").
-5. FAST & CONCISE SPOKEN RESPONSES:
+5. STRICT LANGUAGE POLICY (ENGLISH & TELUGU ONLY):
+   - You must ONLY converse in ENGLISH or TELUGU (తెలుగు).
+   - NEVER speak Spanish, Portuguese, or any other foreign language under any circumstances.
+   - If the caller speaks in English, converse in clear Indian English.
+   - If the caller speaks in Telugu, converse naturally in Telugu (or mixed Telugu/English).
+   - If background noise, phone line static, or garbled sounds are heard, NEVER interpret them as foreign languages like Spanish. Either ask politely for clarification in English or Telugu ("I didn't catch that, could you please repeat?"), or wait for the caller.
+6. FAST & CONCISE SPOKEN RESPONSES:
    - Keep spoken answers very brief, warm, natural, and direct (1 to 2 short sentences maximum).
    - Reply immediately without unnecessary filler words or repeated greetings.
    - Never stay silent. Always acknowledge the caller promptly.
@@ -203,7 +207,9 @@ class GeminiLiveSession:
                         prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name="Aoede")
                     )
                 ),
-                input_audio_transcription=types.AudioTranscriptionConfig(),
+                input_audio_transcription=types.AudioTranscriptionConfig(
+                    language_codes=["en-IN", "te-IN"]
+                ),
                 thinking_config=types.ThinkingConfig(thinking_budget=0),
                 realtime_input_config=types.RealtimeInputConfig(
                     automatic_activity_detection=types.AutomaticActivityDetection(

@@ -220,7 +220,7 @@ class VoiceBridge:
             if self.gemini_session and self.gemini_session._connected:
                 logger.info("Call %s: Triggering initial greeting from Gemini Live...", self.call_id)
                 await self.gemini_session.send_text(
-                    "The caller has just connected to Apollo Hospital. Greet the caller warmly and ask how you can help them today."
+                    "The caller has just connected to Apollo Hospital. Greet the caller warmly in English, mention Apollo Hospital, and ask how you can help them today in English or Telugu."
                 )
             else:
                 logger.warning("Call %s: Gemini Live did not connect in time for greeting.", self.call_id)

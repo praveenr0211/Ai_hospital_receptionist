@@ -170,6 +170,12 @@ class GeminiLiveSession:
                             prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name="Aoede")
                         )
                     ),
+                    input_audio_transcription=types.AudioTranscriptionConfig(),
+                    realtime_input_config=types.RealtimeInputConfig(
+                        automatic_activity_detection=types.AutomaticActivityDetection(
+                            disabled=False
+                        )
+                    ),
                     tools=[{"function_declarations": GEMINI_FUNCTION_DECLARATIONS}]
                 )
                 self._live_context = self._client.aio.live.connect(
@@ -206,29 +212,25 @@ class GeminiLiveSession:
 
         if not self._is_mock and self._live_session:
             from google.genai import types
-            await self._live_session.send(
-                input=types.LiveClientContent(
-                    turns=[
-                        types.Content(
-                            role="user",
-                            parts=[types.Part(text=text)]
-                        )
-                    ],
-                    turn_complete=end_of_turn
-                )
+            await self._live_session.send_client_content(
+                turns=[
+                    types.Content(
+                        role="user",
+                        parts=[types.Part(text=text)]
+                    )
+                ],
+                turn_complete=end_of_turn
             )
 
     async def send_audio(self, pcm_bytes: bytes) -> None:
-        """Send 16kHz PCM audio chunk to Gemini."""
+        """Send 16kHz PCM audio chunk to Gemini via realtime input channel."""
         if not self._connected:
             return
 
         if not self._is_mock and self._live_session:
             from google.genai import types
-            await self._live_session.send(
-                input=types.LiveClientRealtimeInput(
-                    media_chunks=[types.Blob(data=pcm_bytes, mime_type="audio/pcm;rate=16000")]
-                )
+            await self._live_session.send_realtime_input(
+                audio=types.Blob(data=pcm_bytes, mime_type="audio/pcm;rate=16000")
             )
 
     async def send_tool_result(self, call_id: str, function_name: str, response: Dict[str, Any]) -> None:
@@ -238,16 +240,14 @@ class GeminiLiveSession:
 
         if not self._is_mock and self._live_session:
             from google.genai import types
-            await self._live_session.send(
-                input=types.LiveClientToolResponse(
-                    function_responses=[
-                        types.FunctionResponse(
-                            name=function_name,
-                            id=call_id,
-                            response=response
-                        )
-                    ]
-                )
+            await self._live_session.send_tool_response(
+                function_responses=[
+                    types.FunctionResponse(
+                        name=function_name,
+                        id=call_id,
+                        response=response
+                    )
+                ]
             )
 
     async def receive_events(self) -> AsyncIterator[GeminiEvent]:
@@ -259,6 +259,11 @@ class GeminiLiveSession:
             async for response in self._live_session.receive():
                 server_content = getattr(response, "server_content", None)
                 if server_content:
+                    # Caller speech transcription
+                    input_transcription = getattr(server_content, "input_transcription", None)
+                    if input_transcription and getattr(input_transcription, "text", None):
+                        yield GeminiEvent(event_type="caller_transcript", text=input_transcription.text)
+
                     model_turn = getattr(server_content, "model_turn", None)
                     if model_turn:
                         for part in getattr(model_turn, "parts", []):

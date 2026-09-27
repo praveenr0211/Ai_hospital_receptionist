@@ -172,11 +172,7 @@ class VoiceBridge:
                     if "mulaw" in self.media_encoding.lower() or "ulaw" in self.media_encoding.lower():
                         pcm_bytes = AudioProcessor.mulaw_to_pcm16k(raw_bytes)
                     elif self.target_sample_rate == 8000:
-                        try:
-                            import audioop
-                            pcm_bytes, _ = audioop.ratecv(raw_bytes, 2, 1, 8000, 16000, None)
-                        except Exception:
-                            pcm_bytes = raw_bytes
+                        pcm_bytes = AudioProcessor.pcm8k_to_pcm16k(raw_bytes)
                     else:
                         pcm_bytes = raw_bytes
 
@@ -233,7 +229,10 @@ class VoiceBridge:
                 if not self._running:
                     break
 
-                if event.event_type == "audio" and event.audio_pcm:
+                if event.event_type == "caller_transcript" and event.text:
+                    logger.info("Caller said: '%s'", event.text)
+
+                elif event.event_type == "audio" and event.audio_pcm:
                     # Wait for stream_id from Exotel 'start' event if not yet received
                     for _ in range(40):
                         if self.stream_id or not self._running:
@@ -254,7 +253,7 @@ class VoiceBridge:
                             pcm_bytes=out_audio
                         )
                         await self.websocket.send_text(media_frame)
-                        logger.info("Sent audio frame (%d bytes) to Exotel stream %s", len(out_audio), self.stream_id)
+                        logger.debug("Sent audio frame (%d bytes) to Exotel stream %s", len(out_audio), self.stream_id)
 
                 elif event.event_type == "text" and event.text:
                     logger.info("AI Receptionist: %s", event.text)

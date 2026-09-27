@@ -39,17 +39,58 @@ class AudioProcessor:
         return base64.b64encode(audio_bytes).decode("utf-8")
 
     @staticmethod
-    def mulaw_to_pcm16k(mulaw_bytes: bytes) -> bytes:
-        """Convert 8kHz G.711 mu-law from telephony to 16kHz 16-bit linear PCM for Gemini."""
+    def mulaw_to_pcm16k(mulaw_bytes: bytes, gain: float = 1.5) -> bytes:
+        """Convert 8kHz G.711 mu-law from telephony to 16kHz 16-bit linear PCM for Gemini.
+        
+        Uses exact 2x linear interpolation to avoid boundary sample loss and filter
+        phase resets that occur with state-less ratecv. Applies gentle gain normalization (1.5x)
+        to optimize telephony microphone levels for neural speech models.
+        """
         if not mulaw_bytes or not audioop:
             return mulaw_bytes
         try:
             pcm8k = audioop.ulaw2lin(mulaw_bytes, 2)
-            pcm16k, _ = audioop.ratecv(pcm8k, 2, 1, 8000, 16000, None)
-            return pcm16k
+            if gain != 1.0:
+                pcm8k = audioop.mul(pcm8k, 2, gain)
+            n = len(pcm8k) // 2
+            samples = struct.unpack(f"<{n}h", pcm8k)
+            out = []
+            for i in range(n - 1):
+                s1 = samples[i]
+                s2 = samples[i + 1]
+                out.append(s1)
+                out.append((s1 + s2) // 2)
+            if n > 0:
+                out.append(samples[-1])
+                out.append(samples[-1])
+            return struct.pack(f"<{len(out)}h", *out)
         except Exception as exc:
             logger.error("Error in mulaw_to_pcm16k conversion: %s", exc)
             return mulaw_bytes
+
+    @staticmethod
+    def pcm8k_to_pcm16k(pcm8k_bytes: bytes, gain: float = 1.5) -> bytes:
+        """Upsample 8kHz 16-bit linear PCM to 16kHz linear PCM with exact 2x interpolation."""
+        if not pcm8k_bytes:
+            return b""
+        try:
+            if gain != 1.0 and audioop:
+                pcm8k_bytes = audioop.mul(pcm8k_bytes, 2, gain)
+            n = len(pcm8k_bytes) // 2
+            samples = struct.unpack(f"<{n}h", pcm8k_bytes)
+            out = []
+            for i in range(n - 1):
+                s1 = samples[i]
+                s2 = samples[i + 1]
+                out.append(s1)
+                out.append((s1 + s2) // 2)
+            if n > 0:
+                out.append(samples[-1])
+                out.append(samples[-1])
+            return struct.pack(f"<{len(out)}h", *out)
+        except Exception as exc:
+            logger.error("Error in pcm8k_to_pcm16k conversion: %s", exc)
+            return pcm8k_bytes
 
     @staticmethod
     def pcm24k_to_mulaw(pcm24k_bytes: bytes) -> bytes:

@@ -44,8 +44,9 @@ CONVERSATION & APPOINTMENT WORKFLOW:
    - Then call `book_appointment(patient_id=..., doctor_id=..., date=..., start_time=..., reason=...)`.
 4. EXPLICIT CONFIRMATION:
    - State the booked doctor, date, and time clearly to the patient (e.g. "Your appointment with Dr. Amit Roy on tomorrow, September 28 at 3:00 PM is confirmed!").
-5. CONCISE SPOKEN RESPONSES:
-   - Keep spoken answers brief, warm, natural, and conversational for telephone calls.
+5. FAST & CONCISE SPOKEN RESPONSES:
+   - Keep spoken answers very brief, warm, natural, and direct (1 to 2 short sentences maximum).
+   - Reply immediately without unnecessary filler words or repeated greetings.
    - Never stay silent. Always acknowledge the caller promptly.
 """
 
@@ -204,9 +205,14 @@ class GeminiLiveSession:
                         )
                     ),
                     input_audio_transcription=types.AudioTranscriptionConfig(),
+                    thinking_config=types.ThinkingConfig(thinking_budget=0),
                     realtime_input_config=types.RealtimeInputConfig(
                         automatic_activity_detection=types.AutomaticActivityDetection(
-                            disabled=False
+                            disabled=False,
+                            start_of_speech_sensitivity=types.StartSensitivity.START_SENSITIVITY_HIGH,
+                            end_of_speech_sensitivity=types.EndSensitivity.END_SENSITIVITY_HIGH,
+                            silence_duration_ms=400,
+                            prefix_padding_ms=20,
                         )
                     ),
                     tools=[{"function_declarations": GEMINI_FUNCTION_DECLARATIONS}]

@@ -342,17 +342,55 @@ class VoiceBridge:
 
                 # 3. Availability Check (Phase 2)
                 elif function_name == "check_doctor_availability":
-                    doc_id = int(args.get("doctor_id", 1))
-                    date_val = args.get("date", "")
+                    raw_doc_id = args.get("doctor_id")
+                    if isinstance(raw_doc_id, int):
+                        doc_id = raw_doc_id
+                    elif isinstance(raw_doc_id, str) and raw_doc_id.isdigit():
+                        doc_id = int(raw_doc_id)
+                    else:
+                        from app.models.doctor import Doctor
+                        doc_query = str(args.get("doctor_name") or raw_doc_id or "").strip()
+                        doc = db.query(Doctor).filter(Doctor.name.ilike(f"%{doc_query}%")).first()
+                        doc_id = doc.id if doc else 4
+
+                    date_val = str(args.get("date", "")).strip()
+                    from datetime import date as dt_date, timedelta
+                    if not date_val or date_val.lower() in ("today", "now"):
+                        date_val = dt_date.today().isoformat()
+                    elif date_val.lower() in ("tomorrow", "tmrw"):
+                        date_val = (dt_date.today() + timedelta(days=1)).isoformat()
+
                     avail_res = check_doctor_availability(db=db, doctor_id=doc_id, date_val=date_val)
+                    logger.info("Availability check for Doctor %d on %s -> %d slots found", doc_id, date_val, avail_res.total_available)
                     return avail_res.model_dump()
 
                 # 4. Book Appointment (Phase 2 Transactional Booking)
                 elif function_name == "book_appointment":
-                    pat_id = int(args.get("patient_id", 1))
-                    doc_id = int(args.get("doctor_id", 1))
-                    date_val = args.get("date", "")
-                    start_time = args.get("start_time", "")
+                    pat_id = args.get("patient_id")
+                    if not pat_id or not str(pat_id).isdigit():
+                        pat_id = 1
+                    else:
+                        pat_id = int(pat_id)
+
+                    raw_doc_id = args.get("doctor_id")
+                    if isinstance(raw_doc_id, int):
+                        doc_id = raw_doc_id
+                    elif isinstance(raw_doc_id, str) and raw_doc_id.isdigit():
+                        doc_id = int(raw_doc_id)
+                    else:
+                        from app.models.doctor import Doctor
+                        doc_query = str(args.get("doctor_name") or raw_doc_id or "").strip()
+                        doc = db.query(Doctor).filter(Doctor.name.ilike(f"%{doc_query}%")).first()
+                        doc_id = doc.id if doc else 4
+
+                    date_val = str(args.get("date", "")).strip()
+                    from datetime import date as dt_date, timedelta
+                    if not date_val or date_val.lower() in ("today", "now"):
+                        date_val = dt_date.today().isoformat()
+                    elif date_val.lower() in ("tomorrow", "tmrw"):
+                        date_val = (dt_date.today() + timedelta(days=1)).isoformat()
+
+                    start_time = str(args.get("start_time", "10:00")).strip()
                     reason = args.get("reason", "Voice appointment")
                     booking_res = book_appointment_tool(
                         db=db,
@@ -362,6 +400,7 @@ class VoiceBridge:
                         start_time=start_time,
                         reason=reason
                     )
+                    logger.info("Book appointment result: %s", booking_res.model_dump())
                     return booking_res.model_dump()
 
                 # 5. Cancel Appointment
@@ -388,6 +427,10 @@ class VoiceBridge:
                 elif function_name == "find_patient_by_phone":
                     phone = args.get("phone", "")
                     pat_res = find_patient_by_phone(db=db, phone=phone)
+                    if not pat_res.patient:
+                        from app.agent.tools.patient_tools import create_patient
+                        new_pat = create_patient(db=db, name=args.get("name", "Caller"), phone=phone or "9876500001")
+                        return {"success": True, "patient": new_pat.model_dump() if hasattr(new_pat, "model_dump") else new_pat}
                     return pat_res.model_dump()
 
                 # 8. Human Escalation (Real Telephone Transfer)

@@ -400,6 +400,8 @@ class VoiceBridge:
                         start_time=start_time,
                         reason=reason
                     )
+                    if booking_res.success:
+                        db.commit()
                     logger.info("Book appointment result: %s", booking_res.model_dump())
                     return booking_res.model_dump()
 
@@ -408,6 +410,8 @@ class VoiceBridge:
                     appt_id = int(args.get("appointment_id", 1))
                     reason = args.get("reason", "Cancelled via phone call")
                     cancel_res = cancel_appointment_tool(db=db, appointment_id=appt_id, reason=reason)
+                    if cancel_res.success:
+                        db.commit()
                     return cancel_res.model_dump()
 
                 # 6. Reschedule Appointment
@@ -421,6 +425,8 @@ class VoiceBridge:
                         new_date=new_date,
                         new_start_time=new_time
                     )
+                    if reschedule_res.success:
+                        db.commit()
                     return reschedule_res.model_dump()
 
                 # 7. Patient Lookup

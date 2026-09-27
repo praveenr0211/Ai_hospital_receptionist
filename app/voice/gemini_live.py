@@ -37,12 +37,13 @@ CONVERSATION & APPOINTMENT WORKFLOW:
    - When the caller selects a doctor by name (e.g. Dr. Anil Kumar or Dr. Sneha Rao):
      - Immediately call `check_doctor_availability(doctor_id=..., date="{today_str}")` for today or their requested date.
      - Verbally offer 2 to 3 available open slots (for example: "Dr. Anil Kumar has slots available today at 10:00 AM, 10:30 AM, or 11:00 AM. Which one works best for you?").
-3. PATIENT IDENTIFICATION & BOOKING:
-   - Once the caller picks a time slot, ask for their name and phone number.
+3. PATIENT IDENTIFICATION & NEW PATIENT REGISTRATION:
+   - Ask for the caller's name and telephone number.
    - Call `find_patient_by_phone(phone=...)`.
-   - Call `book_appointment(patient_id=..., doctor_id=..., date=..., start_time=..., reason=...)`.
+   - If the patient is new or not found in records, DO NOT escalate to human! Call `create_patient(name=..., phone=...)` to register them immediately.
+   - Then call `book_appointment(patient_id=..., doctor_id=..., date=..., start_time=..., reason=...)`.
 4. EXPLICIT CONFIRMATION:
-   - State the booked doctor, date, and time clearly to the patient.
+   - State the booked doctor, date, and time clearly to the patient (e.g. "Your appointment with Dr. Amit Roy on tomorrow, September 28 at 3:00 PM is confirmed!").
 5. CONCISE SPOKEN RESPONSES:
    - Keep spoken answers brief, warm, natural, and conversational for telephone calls.
    - Never stay silent. Always acknowledge the caller promptly.
@@ -135,6 +136,18 @@ GEMINI_FUNCTION_DECLARATIONS = [
                 "phone": {"type": "STRING", "description": "Phone number with or without country code."}
             },
             "required": ["phone"]
+        }
+    },
+    {
+        "name": "create_patient",
+        "description": "Register a new patient with their full name and telephone number.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "name": {"type": "STRING", "description": "Patient's full name."},
+                "phone": {"type": "STRING", "description": "Patient's telephone number."}
+            },
+            "required": ["name", "phone"]
         }
     },
     {

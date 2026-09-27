@@ -46,7 +46,7 @@ class TransferCoordinator:
                     call_record.transfer_reason = reason
                     call_record.call_status = CallStatus.HUMAN_TRANSFER.value
                     call_record.escalated = True
-                    call_record.outcome = CallOutcome.ESCALATED
+                    call_record.outcome = CallOutcome.HUMAN_TRANSFER
                     call_record.ended_at = datetime.now(timezone.utc)
                     db.commit()
         except Exception as exc:

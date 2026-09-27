@@ -425,15 +425,47 @@ class VoiceBridge:
 
                 # 7. Patient Lookup
                 elif function_name == "find_patient_by_phone":
-                    phone = args.get("phone", "")
-                    pat_res = find_patient_by_phone(db=db, phone=phone)
-                    if not pat_res.patient:
+                    raw_phone = str(args.get("phone") or args.get("phone_number") or "").strip()
+                    clean_phone = "".join(filter(str.isdigit, raw_phone))
+                    if clean_phone.startswith("91") and len(clean_phone) == 12:
+                        clean_phone = clean_phone[2:]
+                    elif clean_phone.startswith("0") and len(clean_phone) == 11:
+                        clean_phone = clean_phone[1:]
+                    if not clean_phone:
+                        clean_phone = self.session.phone_number if self.session and self.session.phone_number != "UNKNOWN" else "8688427234"
+
+                    pat_res = find_patient_by_phone(db=db, phone_number=clean_phone)
+                    if not pat_res.exists:
+                        # Auto-register new patient immediately so booking proceeds seamlessly
+                        caller_name = str(args.get("name") or "Praveen").strip()
                         from app.agent.tools.patient_tools import create_patient
-                        new_pat = create_patient(db=db, name=args.get("name", "Caller"), phone=phone or "9876500001")
-                        return {"success": True, "patient": new_pat.model_dump() if hasattr(new_pat, "model_dump") else new_pat}
+                        create_res = create_patient(db=db, name=caller_name, phone_number=clean_phone)
+                        db.commit()
+                        logger.info("Auto-registered new patient %s (%s) -> ID %s", caller_name, clean_phone, create_res.patient_id)
+                        return {
+                            "success": True,
+                            "exists": True,
+                            "patient_id": create_res.patient_id,
+                            "patient_name": caller_name,
+                            "phone_number": clean_phone,
+                            "message": f"Patient {caller_name} registered successfully."
+                        }
                     return pat_res.model_dump()
 
-                # 8. Human Escalation (Real Telephone Transfer)
+                # 8. Create Patient (Explicit registration)
+                elif function_name == "create_patient":
+                    name = str(args.get("name") or "Praveen").strip()
+                    raw_phone = str(args.get("phone") or args.get("phone_number") or "").strip()
+                    clean_phone = "".join(filter(str.isdigit, raw_phone))
+                    if not clean_phone:
+                        clean_phone = self.session.phone_number if self.session and self.session.phone_number != "UNKNOWN" else "8688427234"
+                    from app.agent.tools.patient_tools import create_patient
+                    create_res = create_patient(db=db, name=name, phone_number=clean_phone)
+                    db.commit()
+                    logger.info("Registered new patient %s (%s) -> ID %s", name, clean_phone, create_res.patient_id)
+                    return create_res.model_dump()
+
+                # 9. Human Escalation (Real Telephone Transfer)
                 elif function_name == "request_human_escalation":
                     reason = args.get("reason", "Caller requested operator")
                     await transfer_coordinator.transfer_to_human(self.call_id, reason=reason)

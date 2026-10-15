@@ -34,13 +34,7 @@ from app.services.rolling_schedule_service import (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: ensure rolling schedules for today through next 14 days
-    try:
-        await asyncio.to_thread(ensure_rolling_schedules)
-    except Exception as err:
-        logging.getLogger("main").warning("Startup rolling schedule check: %s", err)
-
-    # Start recurring background task
+    # Start background schedule maintenance worker asynchronously without blocking port binding
     worker_task = asyncio.create_task(schedule_maintenance_background_worker())
     try:
         yield
@@ -62,8 +56,8 @@ app = FastAPI(
 
 # -------------------------------------------------------------
 # CORS Middleware
-# -------------------------------------------------------------
-# Allow local dashboard and developer dev servers
+# Zoho Catalyst API gateway automatically injects CORS headers for deployed Catalyst clients.
+# FastAPI only handles localhost development servers to prevent duplicate headers.
 allowed_origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",

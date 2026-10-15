@@ -24,6 +24,9 @@ class CallResponse(BaseModel):
     specialty_detected: str | None = None
     outcome: str
     escalated: bool
+    session_id: str | None = None
+    call_status: str | None = None
+    transcript: str | None = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

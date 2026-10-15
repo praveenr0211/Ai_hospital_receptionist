@@ -82,6 +82,9 @@ def list_calls(
             specialty_detected=c.specialty_detected,
             outcome=c.outcome.value,
             escalated=c.escalated,
+            session_id=c.session_id,
+            call_status=c.call_status,
+            transcript=c.transcript,
             created_at=c.created_at
         )
         for c in calls

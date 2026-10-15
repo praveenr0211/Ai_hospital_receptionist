@@ -49,6 +49,7 @@ class VoiceBridge:
         self._running = False
         self._db_call_id: Optional[int] = None
         self._gemini_task: Optional[asyncio.Task] = None
+        self.transcript_messages: list[dict[str, str]] = []
 
     async def run(self) -> None:
         """Start the bidirectional voice streaming bridge."""
@@ -201,6 +202,9 @@ class VoiceBridge:
                         if call_rec.started_at:
                             call_rec.duration_seconds = int((now - call_rec.started_at).total_seconds())
                         call_rec.call_status = CallStatus.COMPLETED.value
+                        if self.transcript_messages:
+                            import json
+                            call_rec.transcript = json.dumps(self.transcript_messages)
                         db.commit()
             except Exception as exc:
                 logger.error("Failed to update call record on stop: %s", exc)
@@ -219,6 +223,10 @@ class VoiceBridge:
 
             if self.gemini_session and self.gemini_session._connected:
                 logger.info("Call %s: Triggering initial greeting from Gemini Live...", self.call_id)
+                self.transcript_messages.append({
+                    "speaker": "ai",
+                    "message": "Hello, welcome to Apollo Hospital reception. How can I help you today?"
+                })
                 await self.gemini_session.send_text(
                     "The caller has just connected to Apollo Hospital. Greet the caller warmly in English, mention Apollo Hospital, and ask how you can help them today in English or Telugu."
                 )
@@ -242,6 +250,12 @@ class VoiceBridge:
 
                 if event.event_type == "caller_transcript" and event.text:
                     logger.info("Caller said: '%s'", event.text)
+                    cleaned = event.text.strip()
+                    if cleaned:
+                        if self.transcript_messages and self.transcript_messages[-1]["speaker"] == "patient":
+                            self.transcript_messages[-1]["message"] += " " + cleaned
+                        else:
+                            self.transcript_messages.append({"speaker": "patient", "message": cleaned})
 
                 elif event.event_type == "audio" and event.audio_pcm:
                     # Wait for stream_id from Exotel 'start' event if not yet received
@@ -268,6 +282,12 @@ class VoiceBridge:
 
                 elif event.event_type == "text" and event.text:
                     logger.info("AI Receptionist: %s", event.text)
+                    cleaned = event.text.strip()
+                    if cleaned:
+                        if self.transcript_messages and self.transcript_messages[-1]["speaker"] == "ai":
+                            self.transcript_messages[-1]["message"] += " " + cleaned
+                        else:
+                            self.transcript_messages.append({"speaker": "ai", "message": cleaned})
 
                 elif event.event_type == "interrupted":
                     # Gemini VAD detected caller speaking
@@ -284,6 +304,16 @@ class VoiceBridge:
                         func_args = call_spec.get("args", {})
                         logger.info("Executing Gemini tool %s (call_id=%s)", func_name, call_id)
                         result = await self._dispatch_tool_call(func_name, func_args)
+                        if func_name == "book_appointment" and result.get("success"):
+                            self.transcript_messages.append({
+                                "speaker": "safety",
+                                "message": f"Appointment confirmed: Dr. {func_args.get('doctor_name', 'Doctor')} on {func_args.get('date')} at {func_args.get('start_time')} (Booking ID: #{result.get('appointment_id', 'Confirmed')})"
+                            })
+                        elif func_name == "route_medical_symptoms" and (result.get("emergency_detected") or result.get("escalation_required")):
+                            self.transcript_messages.append({
+                                "speaker": "safety",
+                                "message": "CLINICAL SAFETY ALERT: Emergency indicators detected. Initiating immediate human transfer."
+                            })
                         await self.gemini_session.send_tool_result(call_id, func_name, result)
 
         except asyncio.CancelledError:
@@ -537,6 +567,9 @@ class VoiceBridge:
                             call_rec.duration_seconds = int((now - call_rec.started_at).total_seconds())
                         if self.session:
                             call_rec.call_status = self.session.status.value
+                        if self.transcript_messages:
+                            import json
+                            call_rec.transcript = json.dumps(self.transcript_messages)
                         db.commit()
             except Exception as exc:
                 logger.error("Failed to update final call record in DB: %s", exc)

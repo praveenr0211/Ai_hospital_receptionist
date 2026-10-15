@@ -387,24 +387,36 @@ export const api = {
           status = 'completed';
         }
 
+        let transcriptMessages = undefined;
+        if (c.transcript) {
+          try {
+            const parsed = typeof c.transcript === 'string' ? JSON.parse(c.transcript) : c.transcript;
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              transcriptMessages = parsed;
+            }
+          } catch {
+            transcriptMessages = [{ speaker: 'patient', message: String(c.transcript) }];
+          }
+        }
+
         return {
-          id: c.id,
-          session_id: c.session_id || `call_${c.id}`,
-          caller_phone: c.phone_number || c.caller_phone || '08688427234',
-          call_status: status,
-          started_at: c.started_at,
-          ended_at: c.ended_at,
-          duration_seconds: c.duration_seconds || 120,
-          outcome: c.outcome || 'completed',
-          intent: c.intent || 'book_appointment',
-          specialty_routed: c.specialty_detected || c.specialty_routed || 'General Medicine',
-          emergency_detected: Boolean(c.escalated || c.emergency_detected || (c.intent && c.intent.toLowerCase().includes('emergency'))),
-          transcript: c.transcript || [
-            { speaker: 'ai', message: 'Hello, welcome to Apollo Hospital reception. How can I help you today?' },
-            { speaker: 'patient', message: `I am calling regarding ${c.intent?.replace('_', ' ') || 'an appointment'}.` },
-            ...(c.escalated ? [{ speaker: 'safety', message: '⚠️ Emergency escalation protocol triggered.' }] : [])
-          ]
-        };
+            id: c.id,
+            session_id: c.session_id || `call_${c.id}`,
+            caller_phone: c.phone_number || c.caller_phone || '08688427234',
+            call_status: status,
+            started_at: c.started_at,
+            ended_at: c.ended_at,
+            duration_seconds: c.duration_seconds || 120,
+            outcome: c.outcome || 'completed',
+            intent: c.intent || 'book_appointment',
+            specialty_routed: c.specialty_detected || c.specialty_routed || 'General Medicine',
+            emergency_detected: Boolean(c.escalated || c.emergency_detected || (c.intent && c.intent.toLowerCase().includes('emergency'))),
+            transcript: transcriptMessages || [
+              { speaker: 'ai', message: 'Hello, welcome to Apollo Hospital reception. How can I help you today?' },
+              { speaker: 'patient', message: `I am calling regarding ${c.intent?.replace('_', ' ') || 'an appointment'}.` },
+              ...(c.escalated ? [{ speaker: 'safety', message: '⚠️ Emergency escalation protocol triggered.' }] : [])
+            ]
+          };
       });
     } catch {
       return MOCK_CALLS;

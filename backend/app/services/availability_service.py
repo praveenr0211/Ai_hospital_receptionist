@@ -73,6 +73,15 @@ def get_available_slots(
         ).all()
 
         if not schedules:
+            # Check if appointment_date is within rolling booking window (today through today + 14 days)
+            today = date.today()
+            if today <= appointment_date <= today + timedelta(days=14):
+                from app.services.rolling_schedule_service import ensure_doctor_schedule_for_date
+                schedules = ensure_doctor_schedule_for_date(doctor_id, appointment_date, db)
+                if schedules and is_local_session:
+                    db.commit()
+
+        if not schedules:
             raise ScheduleNotFoundError(
                 f"No active schedule found for Dr. {doctor.name} on {appointment_date}."
             )

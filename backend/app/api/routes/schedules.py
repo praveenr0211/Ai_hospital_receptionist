@@ -46,3 +46,20 @@ def get_schedules(
         "date": date.isoformat(),
         "schedules": items
     }
+
+
+@router.post("/maintain-window", summary="Maintain rolling schedule window")
+def maintain_schedule_window(
+    days: int = Query(14, ge=1, le=30, description="Rolling window days ahead"),
+    db: Session = Depends(get_db)
+):
+    """Admin/System endpoint to verify and extend doctor schedules across the rolling window."""
+    from app.services.rolling_schedule_service import ensure_rolling_schedules
+    created_count = ensure_rolling_schedules(window_days=days, db=db)
+    return {
+        "status": "success",
+        "window_days": days,
+        "new_schedule_blocks_created": created_count,
+        "message": f"Rolling schedule window maintained for {days} days ahead."
+    }
+

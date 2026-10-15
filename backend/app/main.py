@@ -25,12 +25,39 @@ from app.services.exceptions import (
     BookingError,
 )
 
+import asyncio
+from contextlib import asynccontextmanager
+from app.services.rolling_schedule_service import (
+    ensure_rolling_schedules,
+    schedule_maintenance_background_worker,
+)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: ensure rolling schedules for today through next 14 days
+    try:
+        await asyncio.to_thread(ensure_rolling_schedules)
+    except Exception as err:
+        logging.getLogger("main").warning("Startup rolling schedule check: %s", err)
+
+    # Start recurring background task
+    worker_task = asyncio.create_task(schedule_maintenance_background_worker())
+    try:
+        yield
+    finally:
+        worker_task.cancel()
+        try:
+            await worker_task
+        except asyncio.CancelledError:
+            pass
+
 app = FastAPI(
     title="Hospital AI Receptionist API",
     version="1.0.0",
     description="REST API layer exposing deterministic scheduling, dynamic availability, and booking workflows for AI agents and hospital dashboards.",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # -------------------------------------------------------------

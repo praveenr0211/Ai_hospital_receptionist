@@ -101,6 +101,9 @@ export const App: React.FC = () => {
   // Emergency calls filter (guarded against undefined/null)
   const emergencyCalls = (calls || []).filter((c) => Boolean(c && c.emergency_detected));
 
+  // Active inbound call (real-time from Exotel backend)
+  const activeCall = (calls || []).find((c) => Boolean(c && (c.call_status === 'in_progress' || c.call_status === 'incoming'))) || null;
+
   // Cancel handler
   const handleCancelAppointment = async (apptId: number, reason: string) => {
     try {
@@ -211,8 +214,8 @@ export const App: React.FC = () => {
                 />
               </div>
 
-              {/* Live Call Widget with animated waveform and state tracker */}
-              <LiveCallWidget onViewCall={(c) => setSelectedCall(c)} />
+              {/* Live Call Widget: shows Standing By when idle, or real-time call details when live */}
+              <LiveCallWidget activeCall={activeCall} onViewCall={(c) => setSelectedCall(c)} />
 
               {/* Charts Grid */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

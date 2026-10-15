@@ -16,3 +16,9 @@ class PatientResponse(PatientBase):
     created_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+class PatientListResponse(BaseModel):
+    items: list[PatientResponse]
+    total: int
+    page: int
+    page_size: int

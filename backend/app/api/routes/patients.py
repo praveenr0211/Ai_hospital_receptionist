@@ -1,13 +1,30 @@
-from fastapi import APIRouter, Depends, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, Query, status
+from sqlalchemy import select, func
 from sqlalchemy.orm import Session, selectinload
 from app.api.deps import get_db
 from app.models import Patient, Appointment
-from app.schemas.patient import PatientCreate, PatientResponse
+from app.schemas.patient import PatientCreate, PatientResponse, PatientListResponse
 from app.schemas.appointment import AppointmentResponse
 from app.services.exceptions import PatientNotFoundError, BookingError
 
 router = APIRouter(prefix="/patients", tags=["Patients"])
+
+@router.get("", response_model=PatientListResponse, summary="List Patients")
+def list_patients(
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(50, ge=1, le=100, description="Items per page"),
+    db: Session = Depends(get_db)
+):
+    count_query = select(func.count(Patient.id))
+    total = db.scalar(count_query) or 0
+    offset = (page - 1) * page_size
+    patients = db.scalars(select(Patient).order_by(Patient.id.desc()).offset(offset).limit(page_size)).all()
+    return {
+        "items": patients,
+        "total": total,
+        "page": page,
+        "page_size": page_size
+    }
 
 @router.get("/by-phone/{phone}", response_model=PatientResponse, summary="Find Patient by Phone")
 def get_patient_by_phone(phone: str, db: Session = Depends(get_db)):
@@ -15,6 +32,13 @@ def get_patient_by_phone(phone: str, db: Session = Depends(get_db)):
     patient = db.scalars(select(Patient).where(Patient.phone == clean_phone)).first()
     if not patient:
         raise PatientNotFoundError(f"Patient with phone '{clean_phone}' not found.")
+    return patient
+
+@router.get("/{patient_id}", response_model=PatientResponse, summary="Get Patient Details")
+def get_patient_by_id(patient_id: int, db: Session = Depends(get_db)):
+    patient = db.scalars(select(Patient).where(Patient.id == patient_id)).first()
+    if not patient:
+        raise PatientNotFoundError(f"Patient with ID {patient_id} not found.")
     return patient
 
 @router.post("", response_model=PatientResponse, status_code=status.HTTP_201_CREATED, summary="Create Patient")

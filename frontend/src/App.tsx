@@ -98,15 +98,15 @@ export const App: React.FC = () => {
     return () => clearInterval(interval);
   }, [loadData]);
 
-  // Emergency calls filter
-  const emergencyCalls = calls.filter((c) => c.emergency_detected);
+  // Emergency calls filter (guarded against undefined/null)
+  const emergencyCalls = (calls || []).filter((c) => Boolean(c && c.emergency_detected));
 
   // Cancel handler
   const handleCancelAppointment = async (apptId: number, reason: string) => {
     try {
       await api.cancelAppointment(apptId, reason);
       setAppointments((prev) =>
-        prev.map((a) =>
+        (prev || []).map((a) =>
           a.id === apptId ? { ...a, status: 'cancelled', cancellation_reason: reason } : a
         )
       );
@@ -115,13 +115,12 @@ export const App: React.FC = () => {
     }
   };
 
-  // Doctors filter
-  const filteredDoctors =
-    selectedSpecialty === 'All'
-      ? doctors
-      : doctors.filter(
-          (d) => d.specialty.toLowerCase() === selectedSpecialty.toLowerCase()
-        );
+  // Doctors filter (guarded against undefined/null)
+  const filteredDoctors = (doctors || []).filter((d) => {
+    if (!d) return false;
+    if (selectedSpecialty === 'All') return true;
+    return d.specialty?.toLowerCase() === selectedSpecialty.toLowerCase();
+  });
 
   const getPageTitle = () => {
     switch (currentTab) {

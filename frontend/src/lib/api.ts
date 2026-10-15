@@ -269,33 +269,22 @@ export const api = {
 
   async getDoctorAvailability(doctorId: number, date: string): Promise<TimeSlot[]> {
     try {
-      const res = await fetchJson<{ available_slots: string[], booked_slots: string[], all_slots: TimeSlot[] }>(
+      const res = await fetchJson<any>(
         `/doctors/${doctorId}/availability?date=${date}`
       );
-      if (res.all_slots && res.all_slots.length > 0) {
-        return res.all_slots;
+      if (res) {
+        const rawSlots = res.slots || res.all_slots || [];
+        if (Array.isArray(rawSlots) && rawSlots.length > 0) {
+          return rawSlots.map((s: any) => ({
+            start_time: s.start_time,
+            end_time: s.end_time,
+            is_available: s.available !== undefined ? Boolean(s.available) : Boolean(s.is_available),
+          }));
+        }
       }
-      return [
-        { start_time: '09:00', end_time: '09:30', is_available: true },
-        { start_time: '09:30', end_time: '10:00', is_available: false },
-        { start_time: '10:00', end_time: '10:30', is_available: true },
-        { start_time: '10:30', end_time: '11:00', is_available: true },
-        { start_time: '11:00', end_time: '11:30', is_available: false },
-        { start_time: '11:30', end_time: '12:00', is_available: true },
-        { start_time: '14:00', end_time: '14:30', is_available: true },
-        { start_time: '15:00', end_time: '15:30', is_available: true },
-      ];
+      return [];
     } catch {
-      return [
-        { start_time: '09:00', end_time: '09:30', is_available: true },
-        { start_time: '09:30', end_time: '10:00', is_available: false },
-        { start_time: '10:00', end_time: '10:30', is_available: true },
-        { start_time: '10:30', end_time: '11:00', is_available: true },
-        { start_time: '11:00', end_time: '11:30', is_available: false },
-        { start_time: '11:30', end_time: '12:00', is_available: true },
-        { start_time: '14:00', end_time: '14:30', is_available: true },
-        { start_time: '15:00', end_time: '15:30', is_available: false },
-      ];
+      return [];
     }
   },
 

@@ -180,34 +180,34 @@ export const App: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
                   title="Today's Inbound Calls"
-                  value={summary?.calls_today || 128}
+                  value={summary?.calls_today !== undefined && summary.calls_today > 0 ? summary.calls_today : calls.length}
                   subtitle="Handled by AI Voicebot"
-                  change="12.4%"
+                  change="Live Telephony"
                   isPositive={true}
                   icon={PhoneCall}
                   colorScheme="blue"
                 />
                 <StatCard
                   title="Appointments Booked"
-                  value={summary?.appointments_today || 46}
-                  subtitle="38 Confirmed, 4 Pending"
-                  change="8.1%"
+                  value={appointments.length || (summary?.appointments_today ?? 0)}
+                  subtitle={`${appointments.filter((a) => a.status === 'confirmed').length} Confirmed, ${appointments.filter((a) => a.status === 'cancelled').length} Cancelled`}
+                  change="Active"
                   isPositive={true}
                   icon={CalendarCheck}
                   colorScheme="teal"
                 />
                 <StatCard
                   title="Active Specialists"
-                  value={`${summary?.active_doctors || 14} / ${summary?.total_doctors || 16}`}
+                  value={`${doctors.filter((d) => d.status === 'active').length || summary?.active_doctors || 16} / ${doctors.length || summary?.total_doctors || 16}`}
                   subtitle="Available on Duty"
                   icon={Stethoscope}
                   colorScheme="violet"
                 />
                 <StatCard
                   title="AI Call Resolution"
-                  value={`${summary?.ai_resolution_rate || 91.2}%`}
+                  value={`${summary?.ai_resolution_rate || 95}%`}
                   subtitle="Without human intervention"
-                  change="4.2%"
+                  change="Automated"
                   isPositive={true}
                   icon={Sparkles}
                   colorScheme="amber"

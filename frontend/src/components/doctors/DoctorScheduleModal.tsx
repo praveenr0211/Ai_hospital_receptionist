@@ -86,6 +86,24 @@ export const DoctorScheduleModal: React.FC<DoctorScheduleModalProps> = ({ doctor
                   onChange={(e) => setSelectedDate(e.target.value)}
                   className="text-xs font-semibold text-slate-800 bg-white border border-slate-300 rounded-xl px-3 py-2 shadow-xs focus:ring-2 focus:ring-blue-500 outline-none"
                 />
+                <button
+                  type="button"
+                  onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
+                  className="text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 cursor-pointer"
+                >
+                  Today
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const tmrw = new Date();
+                    tmrw.setDate(tmrw.getDate() + 1);
+                    setSelectedDate(tmrw.toISOString().split('T')[0]);
+                  }}
+                  className="text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 cursor-pointer"
+                >
+                  Tomorrow
+                </button>
               </div>
             </div>
 

@@ -78,12 +78,12 @@ export const App: React.FC = () => {
       ]);
 
       setSummary(sum);
-      setDoctors(docs);
-      setAppointments(appts);
-      setPatients(pats);
-      setCalls(clls);
-      setSpecialties(specs);
-      setIsAiOnline(health.status === 'ok');
+      setDoctors(Array.isArray(docs) ? docs : []);
+      setAppointments(Array.isArray(appts) ? appts : []);
+      setPatients(Array.isArray(pats) ? pats : []);
+      setCalls(Array.isArray(clls) ? clls : []);
+      setSpecialties(Array.isArray(specs) ? specs : []);
+      setIsAiOnline(Boolean(health && health.status === 'ok'));
     } catch {
       // Fallback handlers inside api.ts provide offline defaults
     } finally {
@@ -119,7 +119,7 @@ export const App: React.FC = () => {
   const filteredDoctors = (doctors || []).filter((d) => {
     if (!d) return false;
     if (selectedSpecialty === 'All') return true;
-    return d.specialty?.toLowerCase() === selectedSpecialty.toLowerCase();
+    return (d.specialty || '').toLowerCase() === selectedSpecialty.toLowerCase();
   });
 
   const getPageTitle = () => {
@@ -235,7 +235,7 @@ export const App: React.FC = () => {
               {/* Department Filter Bar */}
               <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between gap-4 overflow-x-auto">
                 <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-                  {['All', ...specialties].map((spec) => (
+                  {['All', ...(Array.isArray(specialties) ? specialties : [])].map((spec) => (
                     <button
                       key={spec}
                       onClick={() => setSelectedSpecialty(spec)}

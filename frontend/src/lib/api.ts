@@ -403,8 +403,12 @@ export const api = {
 
   async getSpecialties(): Promise<string[]> {
     try {
-      const res = await fetchJson<{ specialties: string[] }>('/specialties');
-      return res.specialties;
+      const res = await fetchJson<any>('/specialties');
+      const items = res.items || res.specialties || (Array.isArray(res) ? res : []);
+      if (!items || items.length === 0) {
+        return ['General Medicine', 'Cardiology', 'Orthopedics', 'Dermatology', 'Pediatrics', 'Neurology', 'ENT', 'Gynecology'];
+      }
+      return items.map((s: any) => (typeof s === 'string' ? s : s.name));
     } catch {
       return ['General Medicine', 'Cardiology', 'Orthopedics', 'Dermatology', 'Pediatrics', 'Neurology', 'ENT', 'Gynecology'];
     }

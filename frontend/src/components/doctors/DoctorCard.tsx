@@ -17,11 +17,11 @@ export const DoctorCard: React.FC<DoctorCardProps> = ({ doctor, onViewSchedule }
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-700 font-bold text-base">
-              {doctor.name.replace('Dr. ', '').slice(0, 2).toUpperCase()}
+              {(doctor?.name || 'Doctor').replace('Dr. ', '').slice(0, 2).toUpperCase()}
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-900 leading-tight">{doctor.name}</h3>
-              <p className="text-xs font-semibold text-blue-600 mt-0.5">{doctor.specialty}</p>
+              <h3 className="text-sm font-bold text-slate-900 leading-tight">{doctor?.name || 'Doctor'}</h3>
+              <p className="text-xs font-semibold text-blue-600 mt-0.5">{doctor?.specialty || 'Specialist'}</p>
             </div>
           </div>
 

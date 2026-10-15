@@ -30,11 +30,15 @@ export const LiveCallWidget: React.FC<LiveCallWidgetProps> = ({ activeCall, onVi
       setSeconds(0);
       return;
     }
+    const startMs = activeCall?.started_at ? new Date(activeCall.started_at).getTime() : 0;
+    const initialElapsed = startMs > 0 ? Math.max(0, Math.floor((Date.now() - startMs) / 1000)) : 0;
+    setSeconds(initialElapsed);
+
     const timer = setInterval(() => {
       setSeconds((prev) => prev + 1);
     }, 1000);
     return () => clearInterval(timer);
-  }, [isCallActive]);
+  }, [isCallActive, activeCall?.id]);
 
   const formatDuration = (sec: number) => {
     const m = Math.floor(sec / 60);

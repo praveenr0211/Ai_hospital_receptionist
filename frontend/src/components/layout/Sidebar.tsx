@@ -88,23 +88,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, emerg
         })}
       </nav>
 
-      {/* AI Telephony Status Indicator Card */}
-      <div className="p-3 mx-3 mb-4 rounded-xl bg-slate-800/80 border border-slate-700/60 text-xs">
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-slate-400 font-medium">Telephony Engine</span>
-          <span className="flex items-center gap-1.5 text-emerald-400 font-semibold">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            Exotel Live
-          </span>
-        </div>
-        <div className="text-[11px] text-slate-300 font-mono">
-          Virtual: 095-138-86363
-        </div>
-        <div className="mt-1 text-[10px] text-slate-400">
-          AI Model: Gemini 3.8-Live
-        </div>
-      </div>
-
       {/* Admin Profile Footer */}
       <div className="p-4 border-t border-slate-800 flex items-center gap-3 bg-slate-900/40">
         <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-white font-semibold text-xs border border-slate-600">

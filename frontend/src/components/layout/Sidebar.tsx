@@ -5,13 +5,12 @@ import {
   CalendarDays,
   Users,
   PhoneCall,
-  Sparkles,
   Settings,
   Activity,
   ShieldCheck,
 } from 'lucide-react';
 
-export type NavTab = 'dashboard' | 'doctors' | 'appointments' | 'patients' | 'calls' | 'ai-receptionist' | 'settings';
+export type NavTab = 'dashboard' | 'doctors' | 'appointments' | 'patients' | 'calls' | 'settings';
 
 interface SidebarProps {
   currentTab: NavTab;
@@ -26,7 +25,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, emerg
     { id: 'appointments' as NavTab, label: 'Appointments', icon: CalendarDays },
     { id: 'patients' as NavTab, label: 'Patients', icon: Users },
     { id: 'calls' as NavTab, label: 'Calls', icon: PhoneCall, badge: emergencyCount > 0 ? `${emergencyCount} 🚨` : undefined },
-    { id: 'ai-receptionist' as NavTab, label: 'AI Receptionist', icon: Sparkles, highlight: true },
     { id: 'settings' as NavTab, label: 'Settings', icon: Settings },
   ];
 
@@ -71,8 +69,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange, emerg
                   className={`w-4 h-4 ${
                     isActive
                       ? 'text-white'
-                      : item.highlight
-                      ? 'text-purple-400'
                       : 'text-slate-400'
                   }`}
                 />

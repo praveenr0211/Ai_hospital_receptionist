@@ -23,7 +23,6 @@ import { PatientProfileModal } from './components/patients/PatientProfileModal';
 import { CallsTable } from './components/calls/CallsTable';
 import { CallTranscriptModal } from './components/calls/CallTranscriptModal';
 
-import { AIReceptionistView } from './components/ai/AIReceptionistView';
 import { SettingsView } from './components/settings/SettingsView';
 
 import { api } from './lib/api';
@@ -133,8 +132,6 @@ export const App: React.FC = () => {
         return { title: 'Registered Patients', subtitle: 'Patient directory and historical appointment consultation logs' };
       case 'calls':
         return { title: 'Telephony & Voice Call Records', subtitle: 'Exotel inbound call sessions, speech transcripts, and clinical routing outcomes' };
-      case 'ai-receptionist':
-        return { title: 'AI Receptionist Live Engine', subtitle: 'Gemini Live 3.8 speech agent telemetry, state machine, and accuracy benchmarks' };
       case 'settings':
         return { title: 'System & Safety Settings', subtitle: 'Hospital configurations, language restrictions, and emergency protocols' };
     }
@@ -291,24 +288,7 @@ export const App: React.FC = () => {
             />
           )}
 
-          {/* TAB 6: AI RECEPTIONIST MONITORING */}
-          {currentTab === 'ai-receptionist' && (
-            <AIReceptionistView summary={summary || {
-              total_doctors: 16,
-              active_doctors: 14,
-              total_patients: 65,
-              appointments_today: 46,
-              confirmed_appointments: 38,
-              cancelled_appointments: 4,
-              calls_today: 128,
-              successful_bookings_today: 42,
-              escalated_calls_today: 7,
-              ai_resolution_rate: 91.2,
-              reference_date: '2026-10-05',
-            }} />
-          )}
-
-          {/* TAB 7: SETTINGS */}
+          {/* TAB 6: SETTINGS */}
           {currentTab === 'settings' && <SettingsView />}
         </main>
       </div>
